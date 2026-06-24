@@ -9,14 +9,6 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
-// FoundObject encapsulates every angle of the object we want to manipulate.
-type FoundObject struct {
-	Object types.Object      // Type system details (useful for finding callers)
-	File   *ast.File         // The specific file AST where it resides
-	Node   ast.Node          // The individual AST declaration node (to cut/paste)
-	Pkg    *packages.Package // The package containing this object
-}
-
 // FindObject searches loaded packages for package items or structure methods.
 func FindObject(pkgs []*packages.Package, pkgPath string, objName string) (*FoundObject, error) {
 	// 1. Locate the target package first
@@ -46,11 +38,13 @@ func FindObject(pkgs []*packages.Package, pkgPath string, objName string) (*Foun
 
 		// Dig into the named type's method list
 		if named, ok := typeObj.Type().(*types.Named); ok {
-			for i := 0; i < named.NumMethods(); i++ {
-				m := named.Method(i)
-				if m.Name() == methodName {
-					obj = m
-					break
+			if iface, ok := named.Underlying().(*types.Interface); ok {
+				for i := 0; i < iface.NumMethods(); i++ {
+					m := iface.Method(i)
+					if m.Name() == methodName {
+						obj = m
+						break
+					}
 				}
 			}
 		}
@@ -92,6 +86,13 @@ func FindObject(pkgs []*packages.Package, pkgPath string, objName string) (*Foun
 					}
 				case *ast.ValueSpec: // Variables / Constants
 					for _, ident := range node.Names {
+						if ident.Pos() == pos {
+							targetNode = node
+							return false
+						}
+					}
+				case *ast.Field:
+					for _, ident := range node.Names { // Interface methods and struct fields
 						if ident.Pos() == pos {
 							targetNode = node
 							return false

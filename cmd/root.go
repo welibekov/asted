@@ -24,6 +24,9 @@ func init() {
 
 	// Register mv command
 	rootCmd.AddCommand(mvCmd)
+
+	// Register rewrite command
+	rootCmd.AddCommand(rewriteCmd)
 }
 
 func Execute() {
